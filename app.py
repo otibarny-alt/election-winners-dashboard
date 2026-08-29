@@ -14,6 +14,20 @@ CACHE_SECONDS = int(os.getenv("CACHE_SECONDS","60"))
 AUTH_USERNAME = os.getenv("AUTH_USERNAME","admin")
 AUTH_PASSWORD_HASH = os.getenv("AUTH_PASSWORD_HASH","").strip()
 
+PRESIDENT_CANDIDATE_NAMES = [
+ x.strip() for x in os.getenv(
+  "PRESIDENT_CANDIDATE_NAMES",
+  os.getenv(
+   "CANDIDATE_NAMES",
+   "Candidate 1,Candidate 2,Candidate 3,Candidate 4,Candidate 5,"
+   "Candidate 6,Candidate 7,Candidate 8,Candidate 9,Candidate 10"
+  )
+ ).split(",")
+]
+while len(PRESIDENT_CANDIDATE_NAMES) < 10:
+ PRESIDENT_CANDIDATE_NAMES.append(f"Candidate {len(PRESIDENT_CANDIDATE_NAMES)+1}")
+PRESIDENT_CANDIDATE_NAMES = PRESIDENT_CANDIDATE_NAMES[:10]
+
 ELECTIONS = {
  "PRESIDENT": {
   "uid": os.getenv("PRESIDENT_ASSET_UID","agzzJrY3u2U33csFtFGhcu").strip(),
@@ -235,21 +249,37 @@ def candidate_totals(election,county="",constituency="",ward="",poll_station="",
   if in_scope(geo(r),county,constituency,ward,poll_station,stream):
    rows.append(r)
 
- totals=defaultdict(int)
- names={}
+ # Tally by candidate SLOT first. Some Kobo calculated candidate-name fields
+ # are not saved in submission exports, especially in the Presidential form.
+ # The old V1/V2 logic skipped the votes whenever the candidate name was blank.
+ slot_totals=[0]*cfg["slots"]
+ slot_names=[""]*cfg["slots"]
+
  for r in rows:
   for i in range(1,cfg["slots"]+1):
-   name=first(r,f"{cfg['group']}/candidate{i}")
-   votes=nint(val(r,f"{cfg['group']}/candidate{i}_votes",0))
-   if name:
-    key=norm(name)
-    names[key]=name
-    totals[key]+=votes
+   slot_totals[i-1]+=nint(val(r,f"{cfg['group']}/candidate{i}_votes",0))
+   submitted_name=first(r,f"{cfg['group']}/candidate{i}")
+   if submitted_name and not slot_names[i-1]:
+    slot_names[i-1]=submitted_name
 
- ranking=sorted(
-  [{"candidate":names[k],"votes":v} for k,v in totals.items()],
-  key=lambda x:(-x["votes"],norm(x["candidate"]))
- )
+ # President uses the configured candidate list when Kobo does not export the
+ # calculated candidate-name fields. Other contests retain submitted names,
+ # with a safe slot label fallback instead of silently dropping valid votes.
+ if election=="PRESIDENT":
+  for i in range(cfg["slots"]):
+   if not slot_names[i]:
+    slot_names[i]=PRESIDENT_CANDIDATE_NAMES[i]
+ else:
+  for i in range(cfg["slots"]):
+   if not slot_names[i] and slot_totals[i]:
+    slot_names[i]=f"Candidate {i+1}"
+
+ ranking=[
+  {"candidate":slot_names[i] or f"Candidate {i+1}","votes":slot_totals[i]}
+  for i in range(cfg["slots"])
+  if slot_totals[i] or slot_names[i]
+ ]
+ ranking.sort(key=lambda x:(-x["votes"],norm(x["candidate"])))
 
  # reporting percentage uses unique streams reported for this contest
  reported={full_geo_key(geo(r)) for r in rows if any(full_geo_key(geo(r)))}

@@ -42,3 +42,20 @@ V2 LOGIN ROUTE FIX
 Successful login now redirects explicitly to /dashboard.
 The root URL / redirects authenticated users to /dashboard and signed-out users to /login.
 An authenticated 404 also redirects safely back to /dashboard instead of showing a bare Not Found page.
+
+
+V3 PRESIDENTIAL VOTE FIX
+The dashboard was already detecting the Presidential submission (for example,
+1/43077 streams reported), but V1/V2 only added a candidate's votes if the
+candidate-name calculation was also present in the Kobo submission export.
+
+The Presidential form does not necessarily save those calculated candidate-name
+fields, so valid candidate1_votes ... candidate10_votes were being skipped.
+
+V3 tallies candidate votes by slot independently of the candidate-name fields.
+For President it uses PRESIDENT_CANDIDATE_NAMES (or CANDIDATE_NAMES) as the name
+fallback. Therefore the existing Mwijabu Primary School Stream 2 submission will
+contribute to the national Presidential totals.
+
+For correct candidate names, copy the same comma-separated candidate list used
+in the Presidential dashboard into Render variable PRESIDENT_CANDIDATE_NAMES.
