@@ -302,11 +302,24 @@ def leader_card(election,county="",constituency="",ward="",poll_station="",strea
  ranking=r["ranking"]
  leader=ranking[0] if ranking else None
  runner=ranking[1] if len(ranking)>1 else None
- margin=(leader["votes"]-runner["votes"]) if leader and runner else (leader["votes"] if leader else 0)
+ top_votes=leader["votes"] if leader else 0
+ tied_candidates=[x for x in ranking if x["votes"]==top_votes] if leader else []
+ is_tie=len(tied_candidates)>=2
+ margin=0 if is_tie else ((leader["votes"]-runner["votes"]) if leader and runner else (leader["votes"] if leader else 0))
+
+ # At any stage of counting, two or more candidates sharing the highest vote
+ # total are shown as TIE rather than Leading/Winner.
+ if is_tie:
+  leader_label="Tie"
+ elif r["complete"]:
+  leader_label="Winner"
+ else:
+  leader_label="Leading"
+
  return {
   "election":election,"title":cfg["title"],"available":True,
   "leader":leader,"runner_up":runner,"margin":margin,
-  "leader_label":"Winner" if r["complete"] else "Leading",
+  "leader_label":leader_label,"is_tie":is_tie,"tied_candidates":tied_candidates,
   "reported_streams":r["reported_streams"],
   "expected_streams":r["expected_streams"],
   "reporting_percent":r["reporting_percent"],

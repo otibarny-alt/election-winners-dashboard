@@ -59,3 +59,16 @@ contribute to the national Presidential totals.
 
 For correct candidate names, copy the same comma-separated candidate list used
 in the Presidential dashboard into Render variable PRESIDENT_CANDIDATE_NAMES.
+
+
+V4 TIE STATUS
+If two or more candidates have the same highest vote total at any stage of
+counting, the status is TIE instead of LEADING.
+
+- The card lists all candidates tied for the highest vote total.
+- Margin is 0.
+- There is no sole leader while the tie remains.
+- If later submissions break the tie, status automatically returns to LEADING.
+- At 100% reporting, an unresolved equal highest total remains TIE rather than
+  being incorrectly labelled WINNER.
+- This applies to President, Governor, Senator, Woman Rep, MNA and MCA.

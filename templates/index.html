@@ -70,7 +70,10 @@ async function leaders(){
   if(!c.available){return `<div class="card"><h3>${c.title}</h3><div class="notavailable">Select a ${c.minimum_scope} to calculate this contest correctly.</div></div>`}
   if(!c.leader){return `<div class="card"><h3>${c.title}</h3><div>No votes submitted in this scope yet.</div><div class="meta">${c.reported_streams||0}/${c.expected_streams||0} streams reported</div></div>`}
   let r=c.runner_up||{candidate:"—",votes:0};
-  return `<div class="card"><h3>${c.title}</h3><div class="meta">${c.leader_label}</div><div class="leader">${c.leader.candidate}</div><div class="votes">${c.leader.votes.toLocaleString()} votes</div><div class="runner">Runner-up: <b>${r.candidate}</b></div><div>${r.votes.toLocaleString()} votes · Margin ${c.margin.toLocaleString()}</div><div class="meta">Reporting: ${c.reporting_percent}% (${c.reported_streams}/${c.expected_streams} streams)</div>${rankingTable(c.ranking)}</div>`
+  let topDisplay=c.is_tie
+   ? `<div class="leader">TIE: ${(c.tied_candidates||[]).map(x=>x.candidate).join(" / ")}</div><div class="votes">${c.leader.votes.toLocaleString()} votes each</div><div class="runner">No sole leader</div><div>Margin 0</div>`
+   : `<div class="leader">${c.leader.candidate}</div><div class="votes">${c.leader.votes.toLocaleString()} votes</div><div class="runner">Runner-up: <b>${r.candidate}</b></div><div>${r.votes.toLocaleString()} votes · Margin ${c.margin.toLocaleString()}</div>`;
+  return `<div class="card"><h3>${c.title}</h3><div class="meta">${c.leader_label}</div>${topDisplay}<div class="meta">Reporting: ${c.reporting_percent}% (${c.reported_streams}/${c.expected_streams} streams)</div>${rankingTable(c.ranking)}</div>`
  }).join("");
 }
 async function board(){
