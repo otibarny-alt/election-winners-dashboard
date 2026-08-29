@@ -1,0 +1,92 @@
+<!doctype html>
+<html>
+<head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>2027 Election Winners & Runners-Up Dashboard</title>
+<style>
+:root{--bg:#f4f6f8;--card:#fff;--line:#dde2e7;--text:#15202b;--muted:#66717d}
+*{box-sizing:border-box}body{margin:0;font-family:Arial,sans-serif;background:var(--bg);color:var(--text)}
+header{background:#111;color:#fff;padding:16px 22px;display:flex;justify-content:space-between;align-items:center}
+header h1{font-size:21px;margin:0}header a{color:#fff}.wrap{max-width:1600px;margin:auto;padding:18px}
+.filters,.cards,.tabs{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:16px}
+select,button{padding:10px 12px;border:1px solid #b9c0c7;border-radius:7px;background:#fff;font-size:14px}
+button{cursor:pointer}.cards{align-items:stretch}.card{background:#fff;border:1px solid var(--line);border-radius:12px;padding:15px;min-width:240px;flex:1}
+.card h3{margin:0 0 8px}.leader{font-size:22px;font-weight:700}.runner{font-size:17px;margin-top:9px}.votes{font-weight:700}
+.meta{font-size:12px;color:var(--muted);margin-top:8px}.notavailable{color:#8a5b00}.pill{border:1px solid #d3d8de;border-radius:999px;padding:3px 8px}
+.error{background:#fff3cd;padding:10px;border-radius:7px;margin-bottom:12px;display:none}
+.section{font-size:20px;margin:24px 0 12px}.tabs button.active{background:#111;color:#fff}
+.tablebox{background:#fff;border:1px solid var(--line);border-radius:12px;overflow:auto}
+table{width:100%;border-collapse:collapse;min-width:900px}th,td{padding:10px;border-bottom:1px solid #edf0f2;text-align:left;font-size:13px}
+th{background:#fafbfc;position:sticky;top:0}.ranktable{margin-top:10px;width:100%;min-width:0}.ranktable td{padding:5px 2px;border:0}
+.scopehint{background:#eaf2ff;padding:9px;border-radius:7px;margin-bottom:14px;font-size:13px}
+</style></head>
+<body>
+<header><h1>2027 Election Winners & Runners-Up Dashboard</h1><div><button onclick="refreshData()">Refresh Kobo Data</button> &nbsp; <a href="/logout">Logout</a></div></header>
+<div class="wrap">
+<div id="error" class="error"></div>
+<div class="filters">
+<select id="county"><option value="">National / All Counties</option></select>
+<select id="constituency"><option value="">All Constituencies</option></select>
+<select id="ward"><option value="">All Wards</option></select>
+<select id="station"><option value="">All Polling Stations</option></select>
+<select id="stream"><option value="">All Streams</option></select>
+</div>
+<div class="scopehint">
+During counting, the dashboard shows <b>Leading</b> and <b>Runner-up</b>. A leader changes to <b>Winner</b> only when 100% of the expected polling-station streams for that scope have reported.
+</div>
+
+<h2 class="section">Current Leaders & Runners-Up</h2>
+<div id="cards" class="cards"></div>
+
+<h2 class="section">Winners / Leaders Board by Electoral Area</h2>
+<div class="tabs" id="boardTabs">
+<button data-election="PRESIDENT" class="active">President</button>
+<button data-election="GOVERNOR">Governor</button>
+<button data-election="SENATOR">Senator</button>
+<button data-election="WOMAN REP">Woman Rep</button>
+<button data-election="MNA">MNA</button>
+<button data-election="MCA">MCA</button>
+</div>
+<div class="tablebox"><table>
+<thead><tr><th>Electoral Area</th><th>Status</th><th>Leader / Winner</th><th>Votes</th><th>Runner-up</th><th>Votes</th><th>Margin</th><th>Reporting</th></tr></thead>
+<tbody id="boardRows"><tr><td colspan="8">Loading...</td></tr></tbody>
+</table></div>
+</div>
+
+<script>
+const $=x=>document.getElementById(x); let boardElection="PRESIDENT";
+function q(extra={}){let p=new URLSearchParams();if($("county").value)p.set("county",$("county").value);if($("constituency").value)p.set("constituency",$("constituency").value);if($("ward").value)p.set("ward",$("ward").value);if($("station").value)p.set("poll_station",$("station").value);if($("stream").value)p.set("stream",$("stream").value);for(const [k,v] of Object.entries(extra))p.set(k,v);return p}
+function fill(el,items,title){let old=el.value;el.innerHTML=`<option value="">${title}</option>`+items.map(x=>`<option value="${x.value}">${x.label}</option>`).join("");if([...el.options].some(o=>o.value===old))el.value=old}
+async function filters(){
+ let d=await(await fetch("/api/filters?"+q())).json();
+ fill($("county"),d.counties,"National / All Counties");fill($("constituency"),d.constituencies,"All Constituencies");
+ fill($("ward"),d.wards,"All Wards");fill($("station"),d.poll_stations,"All Polling Stations");fill($("stream"),d.streams,"All Streams");
+}
+function rankingTable(a){if(!a||!a.length)return "";return `<table class="ranktable">${a.slice(0,5).map((x,i)=>`<tr><td>${i+1}. ${x.candidate}</td><td class="votes">${x.votes.toLocaleString()}</td></tr>`).join("")}</table>`}
+async function leaders(){
+ let resp=await fetch("/api/leaders?"+q());let d=await resp.json();
+ let errs=Object.entries(d.errors||{});$("error").style.display=errs.length?"block":"none";$("error").innerHTML=errs.map(([e,x])=>`${e}: ${x}`).join("<br>");
+ $("cards").innerHTML=d.cards.map(c=>{
+  if(!c.available){return `<div class="card"><h3>${c.title}</h3><div class="notavailable">Select a ${c.minimum_scope} to calculate this contest correctly.</div></div>`}
+  if(!c.leader){return `<div class="card"><h3>${c.title}</h3><div>No votes submitted in this scope yet.</div><div class="meta">${c.reported_streams||0}/${c.expected_streams||0} streams reported</div></div>`}
+  let r=c.runner_up||{candidate:"—",votes:0};
+  return `<div class="card"><h3>${c.title}</h3><div class="meta">${c.leader_label}</div><div class="leader">${c.leader.candidate}</div><div class="votes">${c.leader.votes.toLocaleString()} votes</div><div class="runner">Runner-up: <b>${r.candidate}</b></div><div>${r.votes.toLocaleString()} votes · Margin ${c.margin.toLocaleString()}</div><div class="meta">Reporting: ${c.reporting_percent}% (${c.reported_streams}/${c.expected_streams} streams)</div>${rankingTable(c.ranking)}</div>`
+ }).join("");
+}
+async function board(){
+ $("boardRows").innerHTML='<tr><td colspan="8">Loading...</td></tr>';
+ let d=await(await fetch("/api/board?"+q({election:boardElection}))).json();
+ $("boardRows").innerHTML=d.rows.length?d.rows.map(x=>`<tr><td>${x.scope}</td><td><b>${x.leader_label}</b></td><td>${x.leader.candidate}</td><td>${x.leader.votes.toLocaleString()}</td><td>${x.runner_up?x.runner_up.candidate:"—"}</td><td>${x.runner_up?x.runner_up.votes.toLocaleString():"0"}</td><td>${x.margin.toLocaleString()}</td><td>${x.reporting_percent}% (${x.reported_streams}/${x.expected_streams})</td></tr>`).join(""):'<tr><td colspan="8">No results available for this selection yet.</td></tr>';
+}
+async function load(){await filters();await leaders();await board()}
+["county","constituency","ward","station","stream"].forEach((id,i)=>$(id).onchange=async()=>{
+ if(i===0){$("constituency").value="";$("ward").value="";$("station").value="";$("stream").value=""}
+ if(i===1){$("ward").value="";$("station").value="";$("stream").value=""}
+ if(i===2){$("station").value="";$("stream").value=""}
+ if(i===3)$("stream").value="";
+ await load();
+});
+document.querySelectorAll("#boardTabs button").forEach(b=>b.onclick=()=>{document.querySelectorAll("#boardTabs button").forEach(x=>x.classList.remove("active"));b.classList.add("active");boardElection=b.dataset.election;board()});
+async function refreshData(){await fetch("/api/refresh",{method:"POST"});await load()}
+load();
+</script></body></html>
