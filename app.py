@@ -67,7 +67,7 @@ def login():
    ok=False
   if ok:
    session["ok"]=True
-   return redirect(url_for("index"))
+   return redirect(url_for("dashboard"))
   error="Invalid username or password."
  return render_template("login.html",error=error)
 
@@ -285,8 +285,14 @@ def leader_card(election,county="",constituency="",ward="",poll_station="",strea
  }
 
 @app.get("/")
-@auth
 def index():
+ if session.get("ok"):
+  return redirect(url_for("dashboard"))
+ return redirect(url_for("login"))
+
+@app.get("/dashboard")
+@auth
+def dashboard():
  return render_template("index.html")
 
 @app.get("/api/filters")
@@ -397,6 +403,14 @@ def refresh():
  _cache["at"]=0; _cache["elections"]={}; _cache["errors"]={}
  fetch_all(force=True)
  return jsonify(ok=True)
+
+@app.errorhandler(404)
+def not_found(error):
+ # If an authenticated user lands on an obsolete or mistyped dashboard path,
+ # return them to the main dashboard rather than a bare "Not Found" page.
+ if session.get("ok"):
+  return redirect(url_for("dashboard"))
+ return redirect(url_for("login"))
 
 if __name__=="__main__":
  app.run(host="0.0.0.0",port=int(os.getenv("PORT","5000")))

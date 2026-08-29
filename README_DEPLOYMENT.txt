@@ -36,3 +36,9 @@ Use a separate GitHub repository and separate Render Web Service.
 Build command: pip install -r requirements.txt
 Start command: gunicorn app:app
 Set all variables shown in .env.example.
+
+
+V2 LOGIN ROUTE FIX
+Successful login now redirects explicitly to /dashboard.
+The root URL / redirects authenticated users to /dashboard and signed-out users to /login.
+An authenticated 404 also redirects safely back to /dashboard instead of showing a bare Not Found page.
